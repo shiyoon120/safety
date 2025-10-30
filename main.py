@@ -1,4 +1,4 @@
-# 파일명: safetrip_app_v7_final_v2.py
+# 파일명: safetrip_app_v7_no_reset.py
 import streamlit as st
 import random
 import pandas as pd
@@ -210,23 +210,7 @@ if st.session_state.report_searched:
             st.session_state.balloons_shown = False
             st.warning(f"⚠️ **{total_count}개 중 {completed_count}개 완료.** 남은 항목을 마저 점검하세요!")
         
-        # --- 체크리스트 초기화 버튼 로직 (콜백 + 강제 RERUN 사용) ---
-        def reset_checklist_callback_final():
-            # 1. 현재 국가의 체크리스트 상태를 확실하게 False로 초기화
-            st.session_state.checklist_status[selected_country] = {item: False for item in check_list}
-            st.session_state.balloons_shown = False # 풍선 상태 리셋
-            st.toast("체크리스트가 초기화되었습니다. 화면을 갱신합니다.", icon="🔄") 
-            
-            # 2. 상태 변경 후, 화면에 즉시 반영되도록 강제로 재실행 (★핵심 수정 사항)
-            st.rerun() 
-
-        # 버튼 클릭 시 콜백 함수 호출
-        st.button(
-            "✅ 체크리스트 초기화 (재시작)", 
-            key=f"reset_checklist_btn_final_v2_{selected_country}", # 키를 한 번 더 변경하여 충돌 방지
-            on_click=reset_checklist_callback_final,
-            use_container_width=True
-        )
+        # --- 체크리스트 초기화 버튼 제거됨 ---
 
 
     with tab5:
