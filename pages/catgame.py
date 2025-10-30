@@ -1,4 +1,4 @@
-# 파일명: fire_cat_game_final_v6.py
+# 파일명: fire_cat_game_final_v7.py
 import streamlit as st
 import random
 from time import sleep 
@@ -6,21 +6,23 @@ from time import sleep
 # --- 1. 기본 설정 및 상태 관리 ---
 
 st.set_page_config(
-    page_title="냥이의 안전한 집 탈출! - 4단계 훈련",
+    page_title="냥이의 안전한 집 탈출! - 최종 훈련",
     page_icon="😼",
     layout="wide" 
 )
 
-# P.A.S.S. 순서 정의
-PASS_STEPS = ["P: 핀 뽑기", "A: 노즐 조준", "S: 손잡이 누르기", "S: 빗자루 쓸듯 분사"]
+# P.A.S.S. 순서 정의 (난이도 상향을 위해 텍스트 간소화)
+PASS_STEPS_EASY = ["P: 핀 뽑기", "A: 노즐 조준", "S1: 손잡이 누르기", "S2: 빗자루 쓸듯 분사"]
+PASS_STEPS_HARD = ["핀 뽑기", "노즐 조준", "손잡이 누르기", "쓸어 분사"] # 버튼에 표시될 텍스트
 
 # 게임 상태 초기화
 if 'game_stage' not in st.session_state:
     st.session_state.game_stage = 0  # 0: 시작, 1: 압력, 2: 화재 종류, 3: PASS, 4: 대피, 99: 실패, 100: 성공
-    st.session_state.is_pressure_ok = False # 1단계 성공 여부
-    st.session_state.fire_type = random.choice(["주방(유류)", "전기"]) # 2단계 화재 종류
-    st.session_state.pass_status = {step: False for step in PASS_STEPS} # 3단계 진행 상황
-    st.session_state.current_pass_index = 0 # 현재 진행해야 할 PASS 순서 인덱스 (0, 1, 2, 3)
+    st.session_state.is_pressure_ok = False
+    st.session_state.fire_type = random.choice(["주방(유류)", "전기"])
+    st.session_state.pass_status = {step: False for step in PASS_STEPS_HARD} # HARD 버전 사용
+    st.session_state.current_pass_index = 0
+    st.session_state.step_2_success = False # 2단계 성공 여부 추적
     st.session_state.fail_reason = ""
     st.session_state.game_started = False 
 
@@ -39,8 +41,9 @@ def reset_game():
     st.session_state.game_stage = 0
     st.session_state.is_pressure_ok = False
     st.session_state.fire_type = random.choice(["주방(유류)", "전기"])
-    st.session_state.pass_status = {step: False for step in PASS_STEPS}
+    st.session_state.pass_status = {step: False for step in PASS_STEPS_HARD}
     st.session_state.current_pass_index = 0
+    st.session_state.step_2_success = False
     st.session_state.fail_reason = ""
     st.session_state.game_started = False
     st.rerun()
@@ -70,7 +73,7 @@ def render_stage_0():
                 st.session_state.game_started = True
                 go_to_stage(1)
 
-# B. 1단계: 소화기 압력 확인 (경고문 추가)
+# B. 1단계: 소화기 압력 확인 (피드백 강화)
 def render_stage_1():
     st.header("1단계: 소화기 압력 확인 (준비) 🔋")
     st.markdown("### **소화기를 사용하기 전에 압력 게이지를 확인해야 해요!**")
@@ -88,9 +91,11 @@ def render_stage_1():
     with col_p1:
         if is_pressure_ok:
             st.success("👍 합격!")
-        else:
-            # --- 잘못된 압력 선택 시 빨간 경고문 ---
-            st.error("⚠️ 잘못된 압력!")
+            st.markdown(" ") # 공간 확보
+        elif pressure < 50:
+            st.error("앗! 너무 낮아요! 📉") # 피드백 강화
+        else: # pressure > 70
+            st.error("앗! 너무 높아요! 📈") # 피드백 강화
     
     with col_p2:
         if is_pressure_ok:
@@ -101,7 +106,7 @@ def render_stage_1():
             st.warning("압력이 올바르지 않으면 소화기가 작동하지 않을 수 있어요!")
             st.info("압력을 먼저 맞춰주세요.")
 
-# C. 2단계: 화재 종류별 진압 선택 (이동 오류 수정)
+# C. 2단계: 화재 종류별 진압 선택 (피드백 강화 및 이동 오류 수정)
 def render_stage_2():
     st.header("🔥 2단계: 화재 종류별 진압 방법 선택!")
     st.markdown(f"### **현재 화재는 **{st.session_state.fire_type}** 화재예요! 올바른 진압 방법을 고르세요.**")
@@ -111,9 +116,11 @@ def render_stage_2():
     if "주방" in st.session_state.fire_type:
         st.markdown("## 🍳 🔥 (기름이 타는 냄새!)")
         correct_choice = "C. 젖은 담요를 덮어 산소를 차단한다."
+        correct_advice = "**올바른 방법:** 유류 화재는 물을 쓰면 안 되고, 산소를 차단하는 **담요**를 써야 안전해요."
     else: # 전기 화재
         st.markdown("## 🔌 💻 🔥 (전기 장치에서 불꽃이!)")
         correct_choice = "B. 소화기를 사용하거나 전원을 차단한다."
+        correct_advice = "**올바른 방법:** 전기 화재는 감전 위험이 없도록 **소화기**나 **전원 차단**이 필수예요."
 
     st.markdown("---")
     
@@ -124,57 +131,59 @@ def render_stage_2():
         key="fire_type_radio"
     )
 
-    # 이 버튼을 누르지 않으면 아래 로직이 실행되지 않도록 분리
-    if st.button("진압 방법 선택 완료", type="primary"):
+    # 정답을 맞췄는지 확인하는 플래그
+    if not st.session_state.step_2_success and st.button("진압 방법 선택 완료", type="primary"):
         if evac_choice == correct_choice:
             st.session_state.step_2_success = True
             st.success("✨ 정답! 올바른 진압 방법을 선택했어요.")
-            
+            st.rerun() # 성공 상태를 반영하기 위해 즉시 리런
         else:
+            # --- 틀린 이유와 올바른 방법 상세 피드백 제공 ---
+            fail_reason = ""
             if "A. 물을 뿌려서" in evac_choice and "주방" in st.session_state.fire_type:
-                show_fail_reason("🚨 기름(유류) 화재에 물을 뿌리면 폭발적으로 번져요! **물은 절대 안 됩니다.**")
+                fail_reason = f"🚨 기름(유류) 화재에 물을 뿌리면 폭발적으로 번져요! **물은 절대 안 됩니다.**\n\n{correct_advice}"
             elif "C. 젖은 담요를 덮어" in evac_choice and "전기" in st.session_state.fire_type:
-                 show_fail_reason("🚨 전기 화재에 젖은 담요를 사용하면 감전의 위험이 있어요! **전기 화재는 소화기나 전원 차단이 우선입니다.**")
+                 fail_reason = f"🚨 전기 화재에 젖은 담요를 사용하면 감전의 위험이 있어요! **소화기** 사용이 안전합니다.\n\n{correct_advice}"
             else:
-                show_fail_reason("🚨 잘못된 진압 방법으로 화재가 커졌어요! 화재 종류에 따라 진압 방법이 달라요.")
-
-    # 정답을 맞췄을 때만 다음 단계 버튼 표시 (별도의 if문으로 분리)
-    if 'step_2_success' in st.session_state and st.session_state.step_2_success:
+                fail_reason = f"🚨 잘못된 진압 방법으로 화재가 커졌어요! 화재 종류에 따라 진압 방법이 달라요.\n\n{correct_advice}"
+            
+            show_fail_reason(fail_reason)
+    
+    # 성공했을 때만 다음 단계 버튼 표시
+    if st.session_state.step_2_success:
         if st.button("다음 단계 (3단계)로 이동", type="secondary"):
-            del st.session_state.step_2_success # 상태 초기화
             go_to_stage(3)
 
 
-# D. 3단계: P.A.S.S. 순서 맞추기
+# D. 3단계: P.A.S.S. 순서 맞추기 (난이도 상향 및 이동 오류 수정)
 def render_stage_3():
     st.header("💧 3단계: 소화기 P.A.S.S. 순서 훈련!")
-    st.markdown("### **이제 소화기를 잡았어요. 올바른 순서로 사용해야 불이 완전히 꺼져요!**")
+    st.markdown("### **P.A.S.S. 순서를 기억하며 올바른 동작을 순서대로 눌러 불을 완전히 꺼주세요!**")
     st.markdown("---")
 
-    # 현재 진행 상황 표시
-    st.subheader(f"✅ 다음 순서: **{PASS_STEPS[st.session_state.current_pass_index]}**")
+    # 현재 진행 상황 표시 (순서는 직접 알려주지 않고 단계 인덱스만 표시)
+    current_step_name = PASS_STEPS_EASY[st.session_state.current_pass_index] if st.session_state.current_pass_index < 4 else "완료"
+    st.subheader(f"✅ 현재 진행도: {st.session_state.current_pass_index} / 4 단계 ({current_step_name})")
     
     col_pass = st.columns(4)
     
-    is_success = True
-    
-    for i, step in enumerate(PASS_STEPS):
+    for i, step_hard_text in enumerate(PASS_STEPS_HARD):
         with col_pass[i]:
             if st.session_state.current_pass_index == i:
-                # 현재 눌러야 할 버튼
-                if st.button(f"🔴 {step}", key=f"pass_btn_{i}", type="primary", use_container_width=True):
+                # 현재 눌러야 할 버튼 (빨간색으로 강조)
+                if st.button(f"🔴 {step_hard_text}", key=f"pass_btn_{i}", type="primary", use_container_width=True):
                     st.session_state.current_pass_index += 1
-                    st.session_state.pass_status[step] = True
-                    st.toast(f"{step} 완료!", icon="👍")
-                    st.rerun()
-            elif st.session_state.pass_status[step]:
-                # 이미 완료된 단계
-                st.success(f"✅ {step}")
+                    st.session_state.pass_status[step_hard_text] = True
+                    st.toast(f"'{step_hard_text}' 완료!", icon="👍")
+                    st.rerun() # 상태가 바뀌었으므로 리런
+            elif st.session_state.pass_status[step_hard_text]:
+                # 이미 완료된 단계 (초록색)
+                st.success(f"✅ {step_hard_text}")
             else:
-                # 순서를 틀렸을 때 누른 버튼
-                if st.button(f"⚫ {step}", key=f"pass_btn_{i}", use_container_width=True):
-                    show_fail_reason(f"🚨 P.A.S.S. 순서가 틀렸어요! **{PASS_STEPS[st.session_state.current_pass_index]}** 단계를 먼저 수행해야 합니다. (당신은 {step}을 먼저 눌렀어요.)")
-                    is_success = False
+                # 순서를 틀렸을 때 누른 버튼 (일반색)
+                if st.button(f"⚫ {step_hard_text}", key=f"pass_btn_{i}", use_container_width=True):
+                    correct_step_name = PASS_STEPS_EASY[st.session_state.current_pass_index]
+                    show_fail_reason(f"🚨 P.A.S.S. 순서가 틀렸어요! **{correct_step_name}** 단계를 먼저 수행해야 합니다. (당신은 '{step_hard_text}'을 먼저 눌렀어요.)")
 
     st.markdown("---")
     
