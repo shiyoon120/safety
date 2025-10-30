@@ -1,4 +1,4 @@
-# 파일명: safetrip_app_v6.py
+# 파일명: safetrip_app_v6_revised.py
 import streamlit as st
 import random
 import pandas as pd
@@ -8,7 +8,7 @@ st.set_page_config(
     page_icon="✈️", 
     layout="wide"
 )
-st.title("✈️ SafeTrip: 여행 안전 보고서 및 점검")
+st.title("✈️ SafeTrip: 여행 안전 보고서 및 점검 (최종 안정화)")
 st.markdown("여행할 **국가**와 **도시**를 선택하고 **'안전 보고서 검색'** 버튼을 눌러 맞춤형 정보를 확인하세요.")
 st.markdown("---")
 
@@ -45,8 +45,9 @@ if "selected_country" not in st.session_state:
     st.session_state.selected_country = "한국" 
 if "selected_city" not in st.session_state:
     st.session_state.selected_city = "서울"
+# 'checklist_status'를 국가별로 분리 저장하기 위해 딕셔너리로 초기화
 if "checklist_status" not in st.session_state:
-    st.session_state.checklist_status = {item: False for item in check_list}
+    st.session_state.checklist_status = {} # { "국가명": { "항목": False, ... } }
 if "report_searched" not in st.session_state:
     st.session_state.report_searched = False
 if "balloons_shown" not in st.session_state: # 풍선 제어 플래그
@@ -95,13 +96,16 @@ with col_city:
         current_cities,
         index=current_cities.index(st.session_state.selected_city) if st.session_state.selected_city in current_cities else 0,
         key="city_select",
-        on_change=lambda: st.session_state.update(selected_city=st.session_state.city_select, report_searched=False) # 선택 시 검색 상태 해제
+        on_change=lambda: st.session_state.update(selected_city=st.session_state.city_select, report_searched=False, balloons_shown=False) # 선택 시 검색 상태 해제 및 풍선 리셋
     )
 
 col_btn1, col_btn2 = st.columns([1.5, 3])
 with col_btn1:
     if st.button("안전 보고서 검색", type="primary", use_container_width=True):
         st.session_state.report_searched = True
+        # 검색 시 현재 국가의 체크리스트 상태가 없으면 초기화
+        if st.session_state.selected_country not in st.session_state.checklist_status:
+            st.session_state.checklist_status[st.session_state.selected_country] = {item: False for item in check_list}
         st.rerun()
 
 st.markdown("---")
@@ -122,6 +126,9 @@ if st.session_state.report_searched:
                         "추천": {"명소": ["정보 없음"], "맛집": ["정보 없음"], "핫플": ["정보 없음"]}}
 
     st.header(f"🔍 **{selected_city}, {selected_country}** 안전 보고서")
+    
+    # 현재 국가의 체크리스트 상태 가져오기 (검색 버튼에서 초기화됨)
+    current_checklist_status = st.session_state.checklist_status.get(selected_country, {item: False for item in check_list})
     
     # 새로운 탭 추가: '추천 명소'
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["⚠️ 위험 정보", "✅ 대처 요령", "📞 현지 연락처", "📝 여행 전 점검", "✨ 추천 명소/핫플"])
@@ -163,10 +170,11 @@ if st.session_state.report_searched:
         * **🇰🇷 주 {selected_country} 대한민국 대사관/영사관:** (외교부 사이트에서 직접 검색 후 메모하세요.)
         """)
         
+        # 텍스트 에어리어는 세션 상태를 사용하지 않고 바로 키로 관리
         st.text_area(
             "대사관/영사관 연락처 메모",
             placeholder="예: +XX-XXX-XXXX (주XX 대사관)",
-            key="embassy_memo"
+            key=f"embassy_memo_{selected_country}" # 국가별로 메모 분리
         )
         st.info("☎️ 현지 대사관 연락처는 [외교부 해외안전여행](https://www.mofa.go.kr/www/index.do) 사이트에서 **직접 확인** 후 메모해 두는 것이 가장 정확합니다.")
 
@@ -178,12 +186,18 @@ if st.session_state.report_searched:
         new_checklist_status = {}
         for item in check_list:
             # 체크박스 키에 국가를 포함하여 다른 국가를 검색해도 체크 상태가 유지되지 않도록 함 (다른 나라 체크리스트 분리)
-            is_checked = st.checkbox(item, value=st.session_state.checklist_status[item], key=f"check_{item}_{selected_country}")
+            # 현재 국가의 상태를 사용하여 체크박스를 표시
+            is_checked = st.checkbox(item, 
+                                     value=current_checklist_status.get(item, False), 
+                                     key=f"check_{item}_{selected_country}")
             new_checklist_status[item] = is_checked
-        st.session_state.checklist_status = new_checklist_status
+        
+        # 변경된 상태를 현재 국가의 세션 상태에 반영
+        st.session_state.checklist_status[selected_country] = new_checklist_status
+        current_checklist_status = new_checklist_status # 반영된 상태로 업데이트
         
         # 완료 상태 피드백
-        completed_count = sum(st.session_state.checklist_status.values())
+        completed_count = sum(current_checklist_status.values())
         total_count = len(check_list)
         
         st.markdown(f"---")
@@ -194,11 +208,18 @@ if st.session_state.report_searched:
                 st.session_state.balloons_shown = True # 풍선이 나왔음을 표시
             st.success("🎉 **모든 점검 완료! 안전한 여행이 될 거예요!**")
         else:
+            # 완료되지 않았으면 풍선 상태 리셋 (다시 체크 풀었을 경우)
+            st.session_state.balloons_shown = False
             st.warning(f"⚠️ **{total_count}개 중 {completed_count}개 완료.** 남은 항목을 마저 점검하세요!")
         
-        # --- 체크리스트 초기화 버튼 위치 수정 ---
-        if st.button("체크리스트 초기화", key="reset_checklist_btn"):
-            st.session_state.checklist_status = {item: False for item in check_list}
+        # --- 체크리스트 초기화 버튼 로직 수정 ---
+        def reset_checklist():
+            # 현재 국가의 체크리스트 상태만 초기화
+            st.session_state.checklist_status[selected_country] = {item: False for item in check_list}
+            st.session_state.balloons_shown = False # 풍선 상태 리셋
+
+        if st.button("체크리스트 초기화", key=f"reset_checklist_btn_{selected_country}"):
+            reset_checklist()
             st.toast("체크리스트가 초기화되었습니다.", icon="🔄")
             st.rerun() # 초기화 후 화면 갱신
 
@@ -233,44 +254,48 @@ if st.session_state.report_searched:
             f"https://www.google.com/search?q={search_query_trip}",
             use_container_width=True
         )
-
-
-# --- 5. 마무리 및 추천 여행지 재배치 ---
-
-st.markdown("---")
-st.subheader("🌟 놓치지 마세요! 추천 여행지 핫스팟")
-col_rec1, col_rec2, col_rec3 = st.columns(3)
-
-# 추천 로직 (임의 지정)
-recommendations = [
-    ("도쿄", "일본", "안전한 치안, 지진 대비 필수!"),
-    ("파리", "프랑스", "소매치기 주의, 문화재 중심 관광"),
-    ("발리", "인도네시아", "자연재해 및 교통 혼잡 주의"),
-]
-
-for i, (city, country, desc) in enumerate(recommendations):
-    col = [col_rec1, col_rec2, col_rec3][i]
-    with col:
-        st.info(f"**{city} ({country})**", icon="📌")
-        st.caption(desc)
-        if st.button(f"'{city}' 정보 바로 보기", key=f"rec_btn_final_{i}", use_container_width=True):
-            st.session_state.selected_country = country
-            st.session_state.selected_city = city
-            st.session_state.report_searched = True
-            st.rerun()
-
-st.markdown("---")
-
-col_guide, col_map = st.columns(2)
-
-with col_guide:
-    st.markdown("### 🗺️ 지도 기능에 대하여")
-    st.info("요청하신 대로 **실시간 지도** 대신 **국가 이미지 지도**로 대체하였습니다. 여행지의 지리적 위치를 시각적으로 확인해 보세요!")
     
-with col_map:
-    st.subheader(f"🌐 {selected_country} 지도 이미지")
-    # 지도 이미지 태그 추가 (사용자 요청 반영)
-    st.markdown(f"")
+    # --- 5. 지도 섹션 (검색 후에만 표시) ---
+    st.markdown("---")
+    col_guide, col_map = st.columns(2)
 
-st.markdown("---")
+    with col_guide:
+        st.markdown("### 🗺️ 지도 기능에 대하여")
+        st.info("요청하신 대로 **실시간 지도** 대신 **국가 이미지 지도**로 대체하였습니다. 여행지의 지리적 위치를 시각적으로 확인해 보세요!")
+        
+    with col_map:
+        st.subheader(f"🌐 {selected_country} 지도 이미지")
+        # 지도 이미지 태그 추가 (사용자 요청 반영: 귀여운 플레이스홀더 이미지)
+        st.markdown(f"")
+        st.caption(f"**{selected_country}**의 지도입니다. **{selected_city}** 지역을 확인하세요.")
+        
+
+# --- 6. 추천 여행지 섹션 (검색 전, 메인 화면에만 표시) ---
+if not st.session_state.report_searched:
+    st.markdown("---")
+    st.subheader("🌟 놓치지 마세요! 추천 여행지 핫스팟")
+    col_rec1, col_rec2, col_rec3 = st.columns(3)
+
+    # 추천 로직 (임의 지정)
+    recommendations = [
+        ("도쿄", "일본", "안전한 치안, 지진 대비 필수!"),
+        ("파리", "프랑스", "소매치기 주의, 문화재 중심 관광"),
+        ("발리", "인도네시아", "자연재해 및 교통 혼잡 주의"),
+    ]
+
+    for i, (city, country, desc) in enumerate(recommendations):
+        col = [col_rec1, col_rec2, col_rec3][i]
+        with col:
+            st.info(f"**{city} ({country})**", icon="📌")
+            st.caption(desc)
+            if st.button(f"'{city}' 정보 바로 보기", key=f"rec_btn_final_{i}", use_container_width=True):
+                st.session_state.selected_country = country
+                st.session_state.selected_city = city
+                st.session_state.report_searched = True
+                # 추천 국가/도시 선택 시 체크리스트 상태도 초기화 또는 불러옴
+                if country not in st.session_state.checklist_status:
+                    st.session_state.checklist_status[country] = {item: False for item in check_list}
+                st.rerun()
+
+st.markdown("—")
 st.markdown("© 2025 SafeTrip Assistant")
