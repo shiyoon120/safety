@@ -1,10 +1,10 @@
-# 파일명: safetrip_app_v7_no_reset.py
+# 파일명: safetrip_app_v8_final.py
 import streamlit as st
 import random
 import pandas as pd
 
 st.set_page_config(
-    page_title="SafeTrip: 여행 안전 보고서 (V7)", 
+    page_title="SafeTrip: 여행 안전 보고서 (V8)", 
     page_icon="✈️", 
     layout="wide"
 )
@@ -210,8 +210,7 @@ if st.session_state.report_searched:
             st.session_state.balloons_shown = False
             st.warning(f"⚠️ **{total_count}개 중 {completed_count}개 완료.** 남은 항목을 마저 점검하세요!")
         
-        # --- 체크리스트 초기화 버튼 제거됨 ---
-
+        # --- 체크리스트 초기화 버튼은 제거되었습니다. ---
 
     with tab5:
         st.subheader(f"✨ {selected_city} 추천 명소, 맛집, 핫플")
@@ -258,8 +257,22 @@ if st.session_state.report_searched:
         st.warning(f"**🚧 지리적 위치 확인:** 현재 선택하신 **{selected_country}**의 도시 **{selected_city}**는 지도상에 [📍] 위치에 해당합니다.", icon="🗺️")
         st.caption("_(Streamlit 앱에 실제 지도를 표시하려면 별도의 이미지 파일을 준비하거나, `st.map()` 함수를 사용해야 합니다.)_")
 
+    # --- 6. 다시 검색하기 버튼 (★새로 추가된 부분) ---
+    st.markdown("---")
+    def reset_search():
+        # 검색 상태를 해제하여 초기 화면(국가/도시 선택 및 추천 여행지)으로 돌아갑니다.
+        st.session_state.report_searched = False
+        st.session_state.balloons_shown = False # 풍선 상태 리셋
+        st.rerun()
+        
+    st.button(
+        "⬅️ 다시 검색하기 (초기 화면으로)", 
+        on_click=reset_search, 
+        type="secondary", 
+        use_container_width=True
+    )
 
-# --- 6. 추천 여행지 섹션 (검색 전, 메인 화면에만 표시) ---
+# --- 7. 추천 여행지 섹션 (검색 전, 메인 화면에만 표시) ---
 if not st.session_state.report_searched:
     st.markdown("---")
     st.subheader("🌟 놓치지 마세요! 추천 여행지 핫스팟")
