@@ -1,19 +1,18 @@
-# 파일명: safetrip_app_v3.py
+# 파일명: safetrip_app_v4.py
 import streamlit as st
 import random
 import pandas as pd
 
 st.set_page_config(
-    page_title="SafeTrip: 여행 안전 보고서 (V3)", 
+    page_title="SafeTrip: 여행 안전 보고서 (V4)", 
     page_icon="✈️", 
     layout="wide"
 )
 st.title("✈️ SafeTrip: 여행 안전 보고서 및 점검")
-st.markdown("여행할 **도시**를 입력하거나 목록에서 **국가**를 선택하여 맞춤형 안전 정보를 확인하세요.")
+st.markdown("여행할 **국가**와 **도시**를 선택하여 맞춤형 안전 정보를 즉시 확인하세요.")
 st.markdown("---")
 
-# --- 1. 샘플 데이터 확장 (지원 국가 대폭 추가 및 구조화) ---
-# 데이터는 '국가' 키로 저장되며, 도시 검색 시 해당 국가의 데이터를 보여줍니다.
+# --- 1. 샘플 데이터 (V3와 동일) ---
 safety_data = {
     # 아시아/오세아니아 (총 10개국)
     "한국": {"도시": ["서울", "부산", "제주"], "위험 정보": ["치안: 대체로 안전", "교통: 출퇴근 시간 혼잡"], "대처 요령": ["대중교통 이용 권장"], "현지 연락처": {"긴급 전화": "112 (경찰), 119 (구급/소방)"}},
@@ -43,11 +42,6 @@ safety_data = {
     "튀르키예": {"도시": ["이스탄불", "앙카라"], "위험 정보": ["치안: 국경 인접 지역 여행 경보 확인", "자연재해: 지진 가능성"], "대처 요령": ["여행 전 지진 대피 훈련 숙지"], "현지 연락처": {"긴급 전화": "112 (경찰/구급/소방)"}},
 }
 
-# 도시 이름을 검색했을 때 해당 도시가 속한 국가를 찾아주는 매핑 테이블 생성
-city_to_country = {}
-for country, info in safety_data.items():
-    for city in info["도시"]:
-        city_to_country[city.lower()] = country
 
 # 여행 전 필수 점검 리스트
 check_list = [
@@ -63,89 +57,68 @@ check_list = [
 
 if "selected_country" not in st.session_state:
     st.session_state.selected_country = "한국" 
-if "search_initiated" not in st.session_state:
-    st.session_state.search_initiated = False
+if "selected_city" not in st.session_state:
+    st.session_state.selected_city = "서울"
 if "checklist_status" not in st.session_state:
     st.session_state.checklist_status = {item: False for item in check_list}
 
-# --- 3. 사용자 입력 섹션 (도시 입력으로 변경) ---
+# --- 3. 사용자 입력 섹션 (도시 선택으로 변경) ---
 
-col_select, col_input = st.columns(2)
+col_country, col_city = st.columns(2)
 
-# Selectbox 입력 (국가 선택)
-with col_select:
-    selected_from_list = st.selectbox(
-        "① 국가 목록에서 선택 🌍", 
+# 1. 국가 선택 (Change State on Select)
+with col_country:
+    # 'on_change'를 사용하여 국가가 변경될 때마다 도시 목록 업데이트를 트리거합니다.
+    def update_city_on_country_change():
+        # 선택된 국가의 첫 번째 도시를 기본 도시로 설정
+        country_key = st.session_state.country_select
+        if country_key in safety_data and safety_data[country_key]["도시"]:
+            st.session_state.selected_city = safety_data[country_key]["도시"][0]
+        else:
+            st.session_state.selected_city = None
+        # 현재 선택된 국가를 세션에 저장
+        st.session_state.selected_country = country_key
+        
+    st.selectbox(
+        "① 여행할 국가 선택 🌍", 
         list(safety_data.keys()), 
         index=list(safety_data.keys()).index(st.session_state.selected_country),
-        key="country_select"
+        key="country_select",
+        on_change=update_city_on_country_change 
     )
 
-# Text_input 입력 (도시 이름 입력)
-with col_input:
-    # 사용자 정의 입력 기능을 도시 검색에 맞게 수정
-    city_input = st.text_input(
-        "② 여행할 도시 이름 입력 (예: 파리, 뉴욕)", 
-        placeholder="도시 이름 입력 후 검색 버튼 클릭",
-        key="city_input"
+# 2. 도시 선택 (Depend on Country)
+with col_city:
+    # 선택된 국가의 도시 목록을 가져옴
+    current_cities = safety_data.get(st.session_state.selected_country, {}).get("도시", [])
+    
+    # 현재 선택된 도시가 목록에 없으면 첫 번째 도시로 재설정 (오류 방지)
+    if st.session_state.selected_city not in current_cities:
+        if current_cities:
+            st.session_state.selected_city = current_cities[0]
+        else:
+            st.session_state.selected_city = None # 도시가 없는 경우
+    
+    # 도시 선택 selectbox
+    st.selectbox(
+        "② 여행할 도시 선택 🏙️",
+        current_cities,
+        index=current_cities.index(st.session_state.selected_city) if st.session_state.selected_city in current_cities else 0,
+        key="city_select",
+        on_change=lambda: st.session_state.update(selected_city=st.session_state.city_select)
     )
-
-# 검색할 최종 국가 결정 로직
-final_country = selected_from_list # 기본값은 selectbox에서 선택된 국가
-search_term_used = selected_from_list # 검색에 사용된 최종 용어 (국가명 또는 도시명)
-
-if city_input:
-    # 도시 입력이 있을 경우, 소문자로 변환하여 매핑 테이블에서 국가를 찾음
-    country_from_city = city_to_country.get(city_input.lower())
-    if country_from_city:
-        final_country = country_from_city
-        search_term_used = city_input
-    else:
-        # 도시를 찾지 못했으나, selectbox 값을 기본으로 유지
-        pass 
-        
-# --- 버튼 섹션 ---
-col_btn1, col_btn2, col_btn3 = st.columns([1.5, 1, 1])
-
-with col_btn1:
-    if st.button("안전 보고서 검색", type="primary", use_container_width=True):
-        st.session_state.selected_country = final_country
-        st.session_state.search_initiated = True
-        st.session_state.search_term_used = search_term_used # 검색 용어 저장
-        st.experimental_rerun()
-
-with col_btn2:
-    if st.button("초기화", use_container_width=True):
-        st.session_state.selected_country = "한국"
-        st.session_state.search_initiated = False
-        st.session_state.checklist_status = {item: False for item in check_list}
-        st.experimental_rerun()
-
-with col_btn3:
-    # 지도 기능은 구현이 어려우므로 시각적인 도움을 주는 영역으로 대체 (구현 예정 문구 유지)
-    if st.button("지도에서 선택 (구현 예정)", disabled=True, use_container_width=True):
-         st.info("지도 선택 기능은 현재 개발 중입니다. 목록이나 입력창을 이용해 주세요.")
-
 
 st.markdown("---")
 
-# --- 4. 안전 보고서 섹션 (Tabs로 전문화) ---
+# --- 4. 안전 보고서 섹션 (선택 시 바로 업데이트) ---
 
-if not st.session_state.search_initiated:
-    st.info("위에 여행할 국가를 선택하거나 **도시를 입력**한 후 '안전 보고서 검색' 버튼을 눌러주세요.")
-else:
-    # 최종 선택된 국가의 정보
-    country_info = safety_data.get(st.session_state.selected_country)
-    
-    # 검색된 국가가 데이터에 없는 경우의 대체 정보
-    if not country_info:
-        st.error(f"❌ **{st.session_state.selected_country}**에 대한 상세 정보가 없습니다. 목록에서 선택하거나 다른 도시를 검색해 주세요.")
-        # 정보가 없을 때 표시할 기본값 설정
-        country_info = {"위험 정보": ["상세 정보 없음. 일반 안전 수칙 준수."], 
-                        "대처 요령": ["일반 안전 수칙 확인."], 
-                        "현지 연락처": {"긴급 전화": "현지 긴급 연락처 검색 필요", "대사관": "현지 대사관 연락처 검색 필요"}}
+# 선택된 국가/도시 정보 로드
+selected_country = st.session_state.selected_country
+selected_city = st.session_state.selected_city
+country_info = safety_data.get(selected_country)
 
-    st.header(f"🔍 **{st.session_state.selected_country}** 안전 보고서")
+if selected_country and selected_city:
+    st.header(f"🔍 **{selected_city}, {selected_country}** 안전 보고서")
     
     # 탭 구성 (전문성 강화)
     tab1, tab2, tab3, tab4 = st.tabs(["⚠️ 위험 정보", "✅ 대처 요령", "📞 현지 연락처", "📝 여행 전 점검"])
@@ -155,7 +128,7 @@ else:
         for risk in country_info["위험 정보"]:
             st.warning(f"**{risk}**")
         st.markdown("---")
-        st.info("💡 여행지별 특화된 위험 요소를 사전에 인지하는 것이 중요합니다. 특히 도시별로 치안 수준이 다를 수 있습니다.")
+        st.info(f"💡 {selected_city}는 {selected_country} 내에서도 치안 수준이 다를 수 있으니 주의 깊게 확인하세요.")
 
     with tab2:
         st.subheader("✅ 위험 상황별 행동 요령")
@@ -163,7 +136,6 @@ else:
             st.success(f"**{tip}**")
         
         st.markdown("---")
-        # 일반적인 긴급 상황 대처법
         st.markdown("#### 🚨 일반 긴급 상황 대처법")
         st.markdown("""
         * **도난/분실:** 즉시 경찰 신고 및 영사관에 연락. 신용카드 정지.
@@ -177,7 +149,7 @@ else:
         
         st.markdown(f"""
         * **🚨 현지 긴급 전화 (경찰/소방/앰뷸런스):** **{contact.get("긴급 전화", "정보 없음")}**
-        * **🇰🇷 주 현지 대한민국 대사관/영사관:** 해당 지역 대사관/영사관을 검색하여 메모해 주세요.
+        * **🇰🇷 주 현지 대한민국 대사관/영사관:** 여행 전 {selected_country} **대사관/영사관 연락처**를 검색하여 메모해 주세요.
         """)
         st.markdown("---")
         st.info("☎️ 현지 긴급 전화와 대사관 번호를 출국 전 **반드시 메모**해 두세요.")
@@ -206,9 +178,20 @@ else:
         else:
             st.warning(f"⚠️ **{total_count}개 중 {completed_count}개 완료.** 남은 항목을 마저 점검하세요!")
 
+else:
+    st.info("국가와 도시를 선택하여 안전 정보를 확인하세요.")
+
+st.markdown("---")
+
 # --- 5. 마무리 ---
+col_reset, col_guide = st.columns([1, 4])
+with col_reset:
+    if st.button("체크리스트 초기화", type="secondary", use_container_width=True):
+        st.session_state.checklist_status = {item: False for item in check_list}
+        st.toast("체크리스트가 초기화되었습니다.", icon="🔄")
+        st.rerun() # 초기화 후 화면 갱신
+        
 st.sidebar.markdown("## 📚 안전 여행 가이드")
 st.sidebar.info("여행 안전은 준비에서 시작됩니다. 이 가이드가 당신의 여행을 더 안전하게 지켜줄 거예요.")
 
-st.markdown("---")
 st.markdown("© 2025 SafeTrip Assistant")
