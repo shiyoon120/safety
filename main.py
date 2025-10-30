@@ -38,7 +38,6 @@ safety_data = {
              "지도":"images/태국.png",
              "좌표":{"방콕":(250,300),"치앙마이":(200,100),"푸켓":(180,400),"파타야":(260,320),"끄라비":(170,420),"코사무이":(220,410)}
             },
-    # ... 나머지 V6 국가/도시 데이터 그대로 추가 ...
     "미국": {"도시":["뉴욕","LA","샌프란시스코","시카고","마이애미","라스베이거스","하와이"],
              "위험 정보":["치안: 도심 일부 지역 범죄율 높음","법규: 총기 사고 주의"],
              "대처 요령":["야간에는 인적 드문 곳 피하기"],
@@ -55,7 +54,7 @@ safety_data = {
                "지도":"images/프랑스.png",
                "좌표":{"파리":(250,200),"니스":(400,350),"마르세유":(380,400),"리옹":(300,300)}
               },
-    # ... 나머지 V6 데이터 ...
+    # 나머지 V6 국가/도시 데이터도 같은 방식으로 추가...
 }
 
 check_list = [
@@ -73,11 +72,88 @@ if "selected_city" not in st.session_state: st.session_state.selected_city = "�
 if "checklist_status" not in st.session_state: st.session_state.checklist_status = {item: False for item in check_list}
 if "report_searched" not in st.session_state: st.session_state.report_searched = False
 if "balloons_shown" not in st.session_state: st.session_state.balloons_shown = False
-if "recommendation_searched" not in st.session_state: st.session_state.recommendation_searched = False
 
-# --- 3. 입력/검색 UI ---
-# (이전 V7 UI 코드 그대로 적용, 안전 보고서, 체크리스트, 추천 탭 등)
-# --- 4. 지도 표시 + 선택 도시 마크 ---
-# --- 5. 추천 여행지 이벤트 ---
+# --- 3. 사용자 입력 UI ---
+col_country, col_city = st.columns(2)
 
-# ※ 실제 사용 시 V7 샘플 로직 그대로 붙이면 됩니다.
+with col_country:
+    country_list = list(safety_data.keys())
+    country_selected = st.selectbox("① 여행할 국가 선택 🌍", country_list,
+                                    index=country_list.index(st.session_state.selected_country))
+    if country_selected != st.session_state.selected_country:
+        st.session_state.selected_country = country_selected
+        st.session_state.selected_city = safety_data[country_selected]["도시"][0]
+        st.session_state.report_searched = False
+        st.session_state.balloons_shown = False
+
+with col_city:
+    city_list = safety_data[st.session_state.selected_country]["도시"]
+    city_selected = st.selectbox("② 여행할 도시 선택 🏙️", city_list,
+                                 index=city_list.index(st.session_state.selected_city))
+    if city_selected != st.session_state.selected_city:
+        st.session_state.selected_city = city_selected
+        st.session_state.report_searched = False
+        st.session_state.balloons_shown = False
+
+col_btn1, _ = st.columns([2,3])
+with col_btn1:
+    if st.button("안전 보고서 검색", type="primary"):
+        st.session_state.report_searched = True
+        st.rerun()
+
+st.markdown("---")
+
+# --- 4. 안전 보고서 섹션 ---
+if st.session_state.report_searched:
+    country = st.session_state.selected_country
+    city = st.session_state.selected_city
+    info = safety_data[country]
+    
+    st.header(f"🔍 {city}, {country} 안전 보고서")
+    
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["⚠️ 위험 정보","✅ 대처 요령","📞 현지 연락처","📝 여행 전 점검","✨ 추천 명소/핫플"])
+    
+    with tab1:
+        st.subheader("⚠️ 주요 안전 위험 및 유의 사항")
+        for r in info["위험 정보"]:
+            st.warning(r)
+    with tab2:
+        st.subheader("✅ 위험 상황별 행동 요령")
+        for t in info["대처 요령"]:
+            st.success(t)
+    with tab3:
+        st.subheader("📞 현지 비상 연락망")
+        st.text(f"🚨 긴급 전화: {info['현지 연락처']['긴급 전화']}")
+    with tab4:
+        st.subheader("📝 여행 전 점검")
+        new_status = {}
+        for item in check_list:
+            checked = st.checkbox(item, value=st.session_state.checklist_status[item], key=f"{item}_{country}")
+            new_status[item] = checked
+        st.session_state.checklist_status = new_status
+        
+        if all(new_status.values()) and not st.session_state.balloons_shown:
+            st.balloons()
+            st.session_state.balloons_shown = True
+        
+        if st.button("체크리스트 초기화"):
+            st.session_state.checklist_status = {item: False for item in check_list}
+            st.rerun()
+    
+    with tab5:
+        st.subheader(f"✨ {city} 추천 명소, 맛집, 핫플")
+        st.markdown("• " + "\n• ".join(info["추천"]["명소"]))
+        st.markdown("• " + "\n• ".join(info["추천"]["맛집"]))
+        st.markdown("• " + "\n• ".join(info["추천"]["핫플"]))
+
+    # --- 지도 이미지 + 선택 도시 마크 ---
+    st.subheader(f"🌐 {country} 지도")
+    map_img = Image.open(info["지도"])
+    draw = ImageDraw.Draw(map_img)
+    if city in info["좌표"]:
+        x, y = info["좌표"][city]
+        draw.ellipse((x-5, y-5, x+5, y+5), fill="red")
+    st.image(map_img, use_column_width=True)
+
+st.markdown("---")
+st.markdown("© 2025 SafeTrip Assistant")
