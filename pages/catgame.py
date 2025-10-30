@@ -4,21 +4,42 @@ import time
 
 st.set_page_config(page_title="🔥 소방대 출동! 🔥", layout="wide")
 
+# --------------------------
+# 스타일링: 배경 빨강, 버튼 글씨 흰색
+# --------------------------
 st.markdown("""
 <style>
 .stApp {
     background-color: #ff6666;
     color: white;
 }
-.big-button {
-    font-size:24px;
-    height:60px;
-    width:100px;
+.button-red {
+    background-color: #cc0000;
+    color: white;
+    border: 2px solid white;
+    font-size: 24px;
+    padding: 10px;
+    border-radius: 10px;
+}
+.button-red:hover {
+    background-color: #ff3333;
 }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("🔥 소방대 출동! 🔥")
+
+# --------------------------
+# 게임 설명
+# --------------------------
+st.markdown("""
+**게임 방법:**  
+1. 🔥 불 버튼 클릭 → 불 꺼짐, 점수 +1  
+2. 🧯 소화기 클릭 → 주변 불 2개 꺼짐, 점수 +2  
+3. 🛗 엘리베이터 클릭 → 게임 즉시 종료  
+4. 제한 시간 안에 모든 불을 끄세요!  
+5. 단계별 난이도 증가 (불 개수 ↑, 시간 ↓)
+""")
 
 # --------------------------
 # 상태 초기화
@@ -56,29 +77,42 @@ def end_game(reason="끝!"):
 # 게임 진행
 # --------------------------
 if not st.session_state.game_active:
-    if st.button("게임 시작"):
+    if st.button("게임 시작", key="start"):
         start_game()
 else:
     st.write(f"단계: {st.session_state.stage} | 점수: {st.session_state.score} | 남은 시간: {st.session_state.time_left}s")
 
-    # 화면을 5칸 열로 나누어 불, 소화기, 엘리베이터 배치
+    # 버튼 배치
     cols = st.columns(5)
-    for i, col in enumerate(cols):
-        if i < len(st.session_state.fires):
-            if col.button(st.session_state.fires[i], key=f"fire{i}"):
-                st.session_state.fires.pop(i)
-                st.session_state.score += 1
-                st.experimental_rerun()
-        elif i == len(st.session_state.fires):
-            if col.button("🧯", key="extinguisher"):
-                # 주변 불 2개 제거
-                for _ in range(min(2, len(st.session_state.fires))):
-                    st.session_state.fires.pop(0)
-                st.session_state.score += 2
-                st.experimental_rerun()
-        else:
-            if col.button("🛗", key="elevator"):
-                end_game(reason="엘리베이터 눌렀어요!")
+    button_keys = []
+
+    # 불 버튼
+    for i in range(len(st.session_state.fires)):
+        button_keys.append(f"fire_{i}")
+        if cols[i].button(st.session_state.fires[i], key=button_keys[i]):
+            # 클릭 시 안전하게 제거
+            st.session_state.fires[i] = None
+            st.session_state.score += 1
+            st.experimental_rerun()
+
+    # 소화기 버튼
+    if len(cols) > len(st.session_state.fires):
+        idx = len(st.session_state.fires)
+        if cols[idx].button("🧯 소화기", key="extinguisher"):
+            # 주변 불 2개 제거
+            removed = 0
+            for j in range(len(st.session_state.fires)):
+                if st.session_state.fires[j] is not None and removed < 2:
+                    st.session_state.fires[j] = None
+                    removed += 1
+            st.session_state.score += removed * 1
+            st.experimental_rerun()
+
+    # 엘리베이터 버튼
+    if len(cols) > len(st.session_state.fires)+1:
+        idx = len(st.session_state.fires)+1
+        if cols[idx].button("🛗 엘리베이터", key="elevator"):
+            end_game(reason="엘리베이터 눌렀어요!")
 
     # 시간 감소
     st.session_state.time_left -= 1
@@ -87,10 +121,11 @@ else:
         end_game(reason="시간 초과!")
 
     # 다음 단계 체크
-    if len(st.session_state.fires) == 0:
+    if all(f is None for f in st.session_state.fires):
         st.success("🎉 단계 클리어! 다음 단계로 이동합니다!")
         st.session_state.stage += 1
         init_stage(st.session_state.stage)
 
-    if st.button("다시하기"):
+    # 다시하기 버튼
+    if st.button("다시하기", key="restart"):
         start_game()
