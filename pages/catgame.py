@@ -31,7 +31,7 @@ def init_stage(stage):
     random.shuffle(st.session_state.items)
 
 # --------------------------
-# 게임 시작
+# 게임 시작/재시작
 # --------------------------
 def start_game():
     st.session_state.stage = 1
@@ -63,21 +63,24 @@ if st.session_state.game_active:
     st.subheader(st.session_state.message)
 
     # 버튼 화면 구성
-    cols = st.columns(len(st.session_state.fires) + len(st.session_state.items))
-    idx = 0
+    total_buttons = len(st.session_state.fires) + len(st.session_state.items)
+    cols = st.columns(total_buttons)
 
     # 불 버튼
+    fire_idx = 0
     for i in range(len(st.session_state.fires)):
         if st.session_state.fires[i] is not None:
-            if cols[idx].button(st.session_state.fires[i], key=f"fire_{i}"):
+            if cols[fire_idx].button(st.session_state.fires[i], key=f"fire_{i}"):
                 st.session_state.fires[i] = None
                 st.session_state.message = "불을 껐습니다! 계속하세요."
-            idx += 1
+                st.experimental_rerun()
+            fire_idx += 1
 
     # 아이템 버튼
+    item_idx = len(st.session_state.fires)
     for i, item in enumerate(st.session_state.items):
         if item == '🧯':
-            if cols[idx].button(item, key=f"extinguisher_{i}"):
+            if cols[item_idx].button(item, key=f"extinguisher_{i}"):
                 # 소화기 클릭 시 불 2개 제거
                 removed = 0
                 for j in range(len(st.session_state.fires)):
@@ -85,12 +88,12 @@ if st.session_state.game_active:
                         st.session_state.fires[j] = None
                         removed += 1
                 st.session_state.message = "소화기를 사용했습니다!"
-            idx += 1
+                st.experimental_rerun()
         elif item == '🛗':
-            if cols[idx].button(item, key=f"elevator_{i}"):
+            if cols[item_idx].button(item, key=f"elevator_{i}"):
                 st.session_state.message = "엘리베이터를 눌렀어요! 게임 실패!"
                 st.button("다시하기", on_click=reset_game)
-            idx += 1
+        item_idx += 1
 
     # 단계 완료 체크
     if all(f is None for f in st.session_state.fires):
