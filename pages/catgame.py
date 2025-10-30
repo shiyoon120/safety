@@ -1,4 +1,4 @@
-# 파일명: fire_cat_game_final_v10.py
+# 파일명: fire_cat_game_final_v11.py
 import streamlit as st
 import random
 from time import sleep 
@@ -25,6 +25,7 @@ if 'game_stage' not in st.session_state:
     st.session_state.step_2_success = False 
     st.session_state.fail_reason = ""
     st.session_state.game_started = False
+    st.session_state.show_balloons = False # 풍선 제어 플래그
     # 3단계 난이도 상향을 위한 무작위 순서
     st.session_state.pass_random_order = PASS_STEPS_HARD[:] 
     random.shuffle(st.session_state.pass_random_order) # 초기 순서 무작위화
@@ -33,6 +34,9 @@ if 'game_stage' not in st.session_state:
 
 def go_to_stage(stage):
     """게임 단계를 변경하고 페이지를 새로고침(rerun)합니다."""
+    # 성공 단계로 진입할 때만 풍선 플래그를 True로 설정
+    if stage == 100:
+        st.session_state.show_balloons = True
     st.session_state.game_stage = stage
     st.rerun()
 
@@ -49,6 +53,7 @@ def reset_game():
     st.session_state.step_2_success = False
     st.session_state.fail_reason = ""
     st.session_state.game_started = False
+    st.session_state.show_balloons = False # 풍선 플래그 초기화
     # 새로운 무작위 순서 생성
     st.session_state.pass_random_order = PASS_STEPS_HARD[:]
     random.shuffle(st.session_state.pass_random_order)
@@ -163,10 +168,9 @@ def render_stage_2():
             
             show_fail_reason(fail_reason)
 
-# D. 3단계: P.A.S.S. 순서 맞추기 (힌트 제거 및 성공 시 설명 추가)
+# D. 3단계: P.A.S.S. 순서 맞추기
 def render_stage_3():
     st.header("💧 3단계: 소화기 P.A.S.S. 순서 훈련!")
-    # 정답 순서 힌트 제거
     st.markdown("### **소화기 사용의 4단계 순서(P.A.S.S.)를 기억하며 올바른 동작을 순서대로 눌러 불을 완전히 꺼주세요!**")
     st.markdown("---")
 
@@ -214,7 +218,7 @@ def render_stage_3():
         if st.button("다음 단계 (4단계)로 이동 - 최종 대피", type="secondary"):
             go_to_stage(4)
             
-# E. 4단계: 안전한 대피 경로 선택 (텍스트 ❌ 제거)
+# E. 4단계: 안전한 대피 경로 선택 (아이콘/화살표 통일)
 def render_stage_4():
     st.header("🏃‍♀️ 4단계: 안전한 대피 경로 선택! 🚨")
     st.markdown("### **모든 진압이 끝났지만, 건물 밖으로 나가기 위해 마지막으로 안전한 경로를 선택해야 합니다!**")
@@ -224,7 +228,7 @@ def render_stage_4():
     
     col_stair, col_elev = st.columns(2)
 
-    # 1. 계단 버튼 (정답) - 일반색
+    # 1. 계단 버튼 (정답) - 화살표 통일 (⬇️)
     with col_stair:
         if st.button("⬇️ 계단 이용", key="stair_button", use_container_width=True):
             st.toast("똑똑해요! 계단이 안전합니다.", icon="✨")
@@ -232,11 +236,10 @@ def render_stage_4():
             go_to_stage(100)
         st.markdown("### 🏃‍♀️ **A. 계단 비상구를 찾아 낮은 자세로 신속하게 이동한다.**")
         
-    # 2. 엘리베이터 버튼 (오답) - 일반색
+    # 2. 엘리베이터 버튼 (오답) - 아이콘 (🛗) 및 화살표 통일 (⬇️)
     with col_elev:
-        if st.button("⬆️ 엘리베이터 이용", key="elev_button", use_container_width=True):
+        if st.button("⬇️ 🛗 엘리베이터 이용", key="elev_button", use_container_width=True):
             show_fail_reason("🚨 엘리베이터는 화재 시 정전되거나 고장으로 갇힐 위험이 있어 **절대** 이용하면 안 됩니다! 🙅‍♀️ 계단 비상구를 이용해야 합니다.")
-        # ❌ 제거
         st.markdown("### **B. 엘리베이터가 보이니까 버튼을 눌러 빠르게 내려간다.**") 
     
     st.markdown("---")
@@ -254,7 +257,11 @@ def render_stage_99():
         reset_game()
 
 def render_stage_100():
-    st.balloons()
+    # --- 풍선 효과 제어 ---
+    if st.session_state.show_balloons:
+        st.balloons()
+        st.session_state.show_balloons = False # 풍선 플래그 즉시 끄기
+
     st.success("🎉 최종 성공! 💯")
     st.markdown("---")
     st.markdown("## **'안전이'와 함께 무사히 대피했습니다! 정말 잘했어요!** 😻")
