@@ -3,7 +3,7 @@ import streamlit as st
 from PIL import Image, ImageDraw
 
 st.set_page_config(
-    page_title="SafeTrip: 여행 안전 보고서", 
+    page_title="SafeTrip: 여행 안전 보고서 (V7)", 
     page_icon="✈️", 
     layout="wide"
 )
