@@ -1,133 +1,101 @@
 import streamlit as st
 import random
-import time
 
 st.set_page_config(page_title="🔥 소방대 출동! 🔥", layout="wide")
 
-# --------------------------
-# 스타일링
-# --------------------------
-st.markdown("""
-<style>
-.stApp {
-    background-color: #ffb366;  /* 주황 배경으로 게임 느낌 */
-    color: white;
-}
-.game-button {
-    background-color: orange;
-    color: white;
-    font-size: 24px;
-    padding: 15px 25px;
-    border-radius: 12px;
-    border: 2px solid white;
-    margin: 5px;
-    cursor: pointer;
-}
-.game-button:hover {
-    background-color: #ff8000;
-}
-.button-container {
-    display: flex;
-    justify-content: space-around;
-    margin-top: 20px;
-}
-</style>
-""", unsafe_allow_html=True)
-
 st.title("🔥 소방대 출동! 🔥")
-
-# --------------------------
-# 게임 설명
-# --------------------------
-st.markdown("""
-**게임 방법:**  
-1. 🔥 불 클릭 → 불 꺼짐, 점수 +1  
-2. 🧯 소화기 클릭 → 주변 불 2개 꺼짐, 점수 +2  
-3. 🛗 엘리베이터 클릭 → 즉시 게임 종료  
-4. 제한 시간 안에 모든 불을 끄세요!  
-5. 단계별 난이도 증가 (불 개수 ↑, 시간 ↓)
-""")
 
 # --------------------------
 # 상태 초기화
 # --------------------------
 if 'stage' not in st.session_state:
     st.session_state.stage = 1
-if 'score' not in st.session_state:
-    st.session_state.score = 0
-if 'fires' not in st.session_state:
-    st.session_state.fires = []
 if 'game_active' not in st.session_state:
     st.session_state.game_active = False
-if 'time_left' not in st.session_state:
-    st.session_state.time_left = 30
+if 'message' not in st.session_state:
+    st.session_state.message = "게임 시작 버튼을 눌러주세요!"
+if 'fires' not in st.session_state:
+    st.session_state.fires = []
+if 'items' not in st.session_state:
+    st.session_state.items = []
 
 # --------------------------
-# 게임 시작/재시작
+# 단계 초기화
+# --------------------------
+def init_stage(stage):
+    st.session_state.message = f"단계 {stage}! 🔥 불을 꺼주세요!"
+    fire_count = stage + 1
+    st.session_state.fires = ['🔥' for _ in range(fire_count)]
+    # 아이템 배치: 소화기 하나, 엘리베이터 하나
+    st.session_state.items = ['🧯', '🛗']
+    random.shuffle(st.session_state.items)
+
+# --------------------------
+# 게임 시작
 # --------------------------
 def start_game():
     st.session_state.stage = 1
-    st.session_state.score = 0
     st.session_state.game_active = True
     init_stage(st.session_state.stage)
 
-def init_stage(stage):
-    fire_count = stage + 2
-    st.session_state.fires = ['🔥' for _ in range(fire_count)]
-    st.session_state.time_left = max(10, 30 - stage*3)
+def next_stage():
+    st.session_state.stage += 1
+    init_stage(st.session_state.stage)
 
-def end_game(reason="끝!"):
+def reset_game():
+    st.session_state.stage = 1
     st.session_state.game_active = False
-    st.success(f"💥 게임 종료! 이유: {reason} 💥 최종 점수: {st.session_state.score}")
+    st.session_state.message = "게임 시작 버튼을 눌러주세요!"
+    st.session_state.fires = []
+    st.session_state.items = []
 
 # --------------------------
-# 게임 진행
+# 게임 시작 버튼
 # --------------------------
 if not st.session_state.game_active:
-    if st.button("게임 시작", key="start"):
+    if st.button("게임 시작"):
         start_game()
-else:
-    st.write(f"단계: {st.session_state.stage} | 점수: {st.session_state.score} | 남은 시간: {st.session_state.time_left}s")
 
-    # 버튼 표시 영역
-    cols = st.columns(5)
+# --------------------------
+# 게임 화면
+# --------------------------
+if st.session_state.game_active:
+    st.subheader(st.session_state.message)
+
+    # 버튼 화면 구성
+    cols = st.columns(len(st.session_state.fires) + len(st.session_state.items))
+    idx = 0
 
     # 불 버튼
     for i in range(len(st.session_state.fires)):
         if st.session_state.fires[i] is not None:
-            fire_html = f"""<div class="button-container">
-                <button class="game-button" onclick="window.location.reload();">{st.session_state.fires[i]}</button>
-            </div>"""
-            cols[i].markdown(fire_html, unsafe_allow_html=True)
+            if cols[idx].button(st.session_state.fires[i], key=f"fire_{i}"):
+                st.session_state.fires[i] = None
+                st.session_state.message = "불을 껐습니다! 계속하세요."
+            idx += 1
 
-    # 소화기 버튼
-    if len(cols) > len(st.session_state.fires):
-        idx = len(st.session_state.fires)
-        extinguisher_html = """<div class="button-container">
-            <button class="game-button" onclick="window.location.reload();">🧯 소화기</button>
-        </div>"""
-        cols[idx].markdown(extinguisher_html, unsafe_allow_html=True)
+    # 아이템 버튼
+    for i, item in enumerate(st.session_state.items):
+        if item == '🧯':
+            if cols[idx].button(item, key=f"extinguisher_{i}"):
+                # 소화기 클릭 시 불 2개 제거
+                removed = 0
+                for j in range(len(st.session_state.fires)):
+                    if st.session_state.fires[j] is not None and removed < 2:
+                        st.session_state.fires[j] = None
+                        removed += 1
+                st.session_state.message = "소화기를 사용했습니다!"
+            idx += 1
+        elif item == '🛗':
+            if cols[idx].button(item, key=f"elevator_{i}"):
+                st.session_state.message = "엘리베이터를 눌렀어요! 게임 실패!"
+                st.button("다시하기", on_click=reset_game)
+            idx += 1
 
-    # 엘리베이터 버튼
-    if len(cols) > len(st.session_state.fires)+1:
-        idx = len(st.session_state.fires)+1
-        elevator_html = """<div class="button-container">
-            <button class="game-button" onclick="window.location.reload();">🛗 엘리베이터</button>
-        </div>"""
-        cols[idx].markdown(elevator_html, unsafe_allow_html=True)
-
-    # 제한 시간 감소
-    st.session_state.time_left -= 1
-    time.sleep(1)
-    if st.session_state.time_left <= 0:
-        end_game(reason="시간 초과!")
-
-    # 단계 클리어 체크
+    # 단계 완료 체크
     if all(f is None for f in st.session_state.fires):
-        st.success("🎉 단계 클리어! 다음 단계로 이동합니다!")
-        st.session_state.stage += 1
-        init_stage(st.session_state.stage)
+        st.session_state.message = "모든 불을 끄셨습니다! 다음 단계로 이동합니다!"
+        st.button("다음 단계", on_click=next_stage)
 
     # 다시하기 버튼
-    if st.button("다시하기", key="restart"):
-        start_game()
+    st.button("게임 다시하기", on_click=reset_game)
