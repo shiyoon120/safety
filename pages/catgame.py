@@ -1,4 +1,4 @@
-# 파일명: fire_cat_game_final_v5.py
+# 파일명: fire_cat_game_final_v6.py
 import streamlit as st
 import random
 from time import sleep 
@@ -13,14 +13,13 @@ st.set_page_config(
 
 # P.A.S.S. 순서 정의
 PASS_STEPS = ["P: 핀 뽑기", "A: 노즐 조준", "S: 손잡이 누르기", "S: 빗자루 쓸듯 분사"]
-PASS_STATUS = {step: False for step in PASS_STEPS} # 각 단계의 완료 상태
 
 # 게임 상태 초기화
 if 'game_stage' not in st.session_state:
     st.session_state.game_stage = 0  # 0: 시작, 1: 압력, 2: 화재 종류, 3: PASS, 4: 대피, 99: 실패, 100: 성공
     st.session_state.is_pressure_ok = False # 1단계 성공 여부
     st.session_state.fire_type = random.choice(["주방(유류)", "전기"]) # 2단계 화재 종류
-    st.session_state.pass_status = PASS_STATUS # 3단계 진행 상황
+    st.session_state.pass_status = {step: False for step in PASS_STEPS} # 3단계 진행 상황
     st.session_state.current_pass_index = 0 # 현재 진행해야 할 PASS 순서 인덱스 (0, 1, 2, 3)
     st.session_state.fail_reason = ""
     st.session_state.game_started = False 
@@ -36,6 +35,7 @@ def reset_game():
     """게임을 초기 상태로 되돌립니다."""
     st.toast("게임을 다시 시작합니다! 😼", icon="🔄")
     sleep(1) 
+    # 모든 상태를 초기화
     st.session_state.game_stage = 0
     st.session_state.is_pressure_ok = False
     st.session_state.fire_type = random.choice(["주방(유류)", "전기"])
@@ -70,7 +70,7 @@ def render_stage_0():
                 st.session_state.game_started = True
                 go_to_stage(1)
 
-# B. 1단계: 소화기 압력 확인 (준비 단계)
+# B. 1단계: 소화기 압력 확인 (경고문 추가)
 def render_stage_1():
     st.header("1단계: 소화기 압력 확인 (준비) 🔋")
     st.markdown("### **소화기를 사용하기 전에 압력 게이지를 확인해야 해요!**")
@@ -89,7 +89,9 @@ def render_stage_1():
         if is_pressure_ok:
             st.success("👍 합격!")
         else:
-            st.error("⚠️ 확인!")
+            # --- 잘못된 압력 선택 시 빨간 경고문 ---
+            st.error("⚠️ 잘못된 압력!")
+    
     with col_p2:
         if is_pressure_ok:
             st.info("✅ 압력 확인 완료! 소화기를 사용할 수 있어요.")
@@ -99,13 +101,13 @@ def render_stage_1():
             st.warning("압력이 올바르지 않으면 소화기가 작동하지 않을 수 있어요!")
             st.info("압력을 먼저 맞춰주세요.")
 
-# C. 2단계: 화재 종류별 진압 선택 (판단 단계)
+# C. 2단계: 화재 종류별 진압 선택 (이동 오류 수정)
 def render_stage_2():
     st.header("🔥 2단계: 화재 종류별 진압 방법 선택!")
     st.markdown(f"### **현재 화재는 **{st.session_state.fire_type}** 화재예요! 올바른 진압 방법을 고르세요.**")
     st.markdown("---")
     
-    # 이모지 시각화
+    # 화재 시각화 및 정답 설정
     if "주방" in st.session_state.fire_type:
         st.markdown("## 🍳 🔥 (기름이 타는 냄새!)")
         correct_choice = "C. 젖은 담요를 덮어 산소를 차단한다."
@@ -122,11 +124,12 @@ def render_stage_2():
         key="fire_type_radio"
     )
 
+    # 이 버튼을 누르지 않으면 아래 로직이 실행되지 않도록 분리
     if st.button("진압 방법 선택 완료", type="primary"):
         if evac_choice == correct_choice:
+            st.session_state.step_2_success = True
             st.success("✨ 정답! 올바른 진압 방법을 선택했어요.")
-            if st.button("다음 단계 (3단계)로 이동", type="secondary"):
-                go_to_stage(3)
+            
         else:
             if "A. 물을 뿌려서" in evac_choice and "주방" in st.session_state.fire_type:
                 show_fail_reason("🚨 기름(유류) 화재에 물을 뿌리면 폭발적으로 번져요! **물은 절대 안 됩니다.**")
@@ -135,8 +138,14 @@ def render_stage_2():
             else:
                 show_fail_reason("🚨 잘못된 진압 방법으로 화재가 커졌어요! 화재 종류에 따라 진압 방법이 달라요.")
 
+    # 정답을 맞췄을 때만 다음 단계 버튼 표시 (별도의 if문으로 분리)
+    if 'step_2_success' in st.session_state and st.session_state.step_2_success:
+        if st.button("다음 단계 (3단계)로 이동", type="secondary"):
+            del st.session_state.step_2_success # 상태 초기화
+            go_to_stage(3)
 
-# D. 3단계: P.A.S.S. 순서 맞추기 (실행 단계)
+
+# D. 3단계: P.A.S.S. 순서 맞추기
 def render_stage_3():
     st.header("💧 3단계: 소화기 P.A.S.S. 순서 훈련!")
     st.markdown("### **이제 소화기를 잡았어요. 올바른 순서로 사용해야 불이 완전히 꺼져요!**")
@@ -162,9 +171,8 @@ def render_stage_3():
                 # 이미 완료된 단계
                 st.success(f"✅ {step}")
             else:
-                # 아직 완료되지 않은 단계
+                # 순서를 틀렸을 때 누른 버튼
                 if st.button(f"⚫ {step}", key=f"pass_btn_{i}", use_container_width=True):
-                    # 순서를 틀렸을 때
                     show_fail_reason(f"🚨 P.A.S.S. 순서가 틀렸어요! **{PASS_STEPS[st.session_state.current_pass_index]}** 단계를 먼저 수행해야 합니다. (당신은 {step}을 먼저 눌렀어요.)")
                     is_success = False
 
@@ -177,10 +185,10 @@ def render_stage_3():
             go_to_stage(4)
             
 
-# E. 4단계: 안전한 대피 경로 선택 (최종 판단 단계)
+# E. 4단계: 안전한 대피 경로 선택
 def render_stage_4():
     st.header("🏃‍♀️ 4단계: 안전한 대피 경로 선택! 🚨")
-    st.markdown("### **이제 모든 진압이 끝났지만, 건물 밖으로 나가기 위해 마지막으로 안전한 경로를 선택해야 합니다!**")
+    st.markdown("### **모든 진압이 끝났지만, 건물 밖으로 나가기 위해 마지막으로 안전한 경로를 선택해야 합니다!**")
     st.markdown("---")
     
     st.subheader("최종 대피 경로 선택:")
