@@ -1,10 +1,10 @@
-# 파일명: safetrip_app_v6_revised.py
+# 파일명: safetrip_app_v7_final.py
 import streamlit as st
 import random
 import pandas as pd
 
 st.set_page_config(
-    page_title="SafeTrip: 여행 안전 보고서 (V6)", 
+    page_title="SafeTrip: 여행 안전 보고서 (V7)", 
     page_icon="✈️", 
     layout="wide"
 )
@@ -12,9 +12,8 @@ st.title("✈️ SafeTrip: 여행 안전 보고서 및 점검 (최종 안정화)
 st.markdown("여행할 **국가**와 **도시**를 선택하고 **'안전 보고서 검색'** 버튼을 눌러 맞춤형 정보를 확인하세요.")
 st.markdown("---")
 
-# --- 1. 샘플 데이터 확장 (추천 명소/핫플 정보 추가) ---
+# --- 1. 샘플 데이터 확장 ---
 safety_data = {
-    # 아시아/오세아니아 (총 10개국)
     "한국": {"도시": ["서울", "부산", "제주", "인천", "대구", "대전", "광주", "울산"], "위험 정보": ["치안: 대체로 안전", "교통: 출퇴근 시간 혼잡"], "대처 요령": ["대중교통 이용 권장"], "현지 연락처": {"긴급 전화": "112 (경찰), 119 (구급/소방)"}, "추천": {"명소": ["경복궁", "남산타워"], "맛집": ["광장시장", "명동교자"], "핫플": ["홍대", "성수동"]}},
     "일본": {"도시": ["도쿄", "오사카", "후쿠오카", "삿포로", "나고야", "교토", "요코하마"], "위험 정보": ["자연재해: 지진 가능성", "치안: 유흥가 호객행위 주의"], "대처 요령": ["지진 발생 시 'DROP, COVER, HOLD ON' 기억"], "현지 연락처": {"긴급 전화": "110 (경찰), 119 (구급/소방)"}, "추천": {"명소": ["후지산", "도쿄 타워"], "맛집": ["라멘 골목", "오코노미야키"], "핫플": ["시부야", "신주쿠"]}},
     "태국": {"도시": ["방콕", "치앙마이", "푸켓", "파타야", "끄라비", "코사무이"], "위험 정보": ["치안: 관광지 소매치기 주의", "교통: 툭툭 이용 시 가격 흥정 필수"], "대처 요령": ["정부 공인된 택시 앱 사용"], "현지 연락처": {"긴급 전화": "191 (경찰), 1669 (앰뷸런스)"}, "추천": {"명소": ["왓 아룬", "왕궁"], "맛집": ["카오산 로드 노점", "팟타이"], "핫플": ["루프탑 바", "클럽"]}},
@@ -45,7 +44,7 @@ if "selected_country" not in st.session_state:
     st.session_state.selected_country = "한국" 
 if "selected_city" not in st.session_state:
     st.session_state.selected_city = "서울"
-# 'checklist_status'를 국가별로 분리 저장하기 위해 딕셔너리로 초기화
+# 'checklist_status'를 국가별로 분리 저장하는 딕셔너리로 초기화
 if "checklist_status" not in st.session_state:
     st.session_state.checklist_status = {} # { "국가명": { "항목": False, ... } }
 if "report_searched" not in st.session_state:
@@ -127,7 +126,7 @@ if st.session_state.report_searched:
 
     st.header(f"🔍 **{selected_city}, {selected_country}** 안전 보고서")
     
-    # 현재 국가의 체크리스트 상태 가져오기 (검색 버튼에서 초기화됨)
+    # 현재 국가의 체크리스트 상태 가져오기 
     current_checklist_status = st.session_state.checklist_status.get(selected_country, {item: False for item in check_list})
     
     # 새로운 탭 추가: '추천 명소'
@@ -185,7 +184,6 @@ if st.session_state.report_searched:
         # 체크리스트 항목 렌더링 및 상태 업데이트
         new_checklist_status = {}
         for item in check_list:
-            # 체크박스 키에 국가를 포함하여 다른 국가를 검색해도 체크 상태가 유지되지 않도록 함 (다른 나라 체크리스트 분리)
             # 현재 국가의 상태를 사용하여 체크박스를 표시
             is_checked = st.checkbox(item, 
                                      value=current_checklist_status.get(item, False), 
@@ -212,16 +210,21 @@ if st.session_state.report_searched:
             st.session_state.balloons_shown = False
             st.warning(f"⚠️ **{total_count}개 중 {completed_count}개 완료.** 남은 항목을 마저 점검하세요!")
         
-        # --- 체크리스트 초기화 버튼 로직 수정 ---
-        def reset_checklist():
+        # --- 체크리스트 초기화 버튼 로직 (콜백 함수 사용) ---
+        def reset_checklist_callback():
             # 현재 국가의 체크리스트 상태만 초기화
             st.session_state.checklist_status[selected_country] = {item: False for item in check_list}
             st.session_state.balloons_shown = False # 풍선 상태 리셋
+            st.toast("체크리스트가 초기화되었습니다.", icon="🔄") 
+            # 콜백 함수 실행 후 Streamlit이 자동으로 화면을 갱신합니다.
 
-        if st.button("체크리스트 초기화", key=f"reset_checklist_btn_{selected_country}"):
-            reset_checklist()
-            st.toast("체크리스트가 초기화되었습니다.", icon="🔄")
-            st.rerun() # 초기화 후 화면 갱신
+        # 버튼 클릭 시 콜백 함수 호출
+        st.button(
+            "체크리스트 초기화", 
+            key=f"reset_checklist_btn_{selected_country}_final", 
+            on_click=reset_checklist_callback,
+            use_container_width=True
+        )
 
 
     with tab5:
@@ -264,11 +267,11 @@ if st.session_state.report_searched:
         st.info("요청하신 대로 **실시간 지도** 대신 **국가 이미지 지도**로 대체하였습니다. 여행지의 지리적 위치를 시각적으로 확인해 보세요!")
         
     with col_map:
-        st.subheader(f"🌐 {selected_country} 지도 이미지")
-        # 지도 이미지 태그 추가 (사용자 요청 반영: 귀여운 플레이스홀더 이미지)
-        st.markdown(f"")
-        st.caption(f"**{selected_country}**의 지도입니다. **{selected_city}** 지역을 확인하세요.")
-        
+        st.subheader(f"🌐 {selected_country} 지리적 정보")
+        # 실제 이미지를 넣을 수 없으므로, 아이콘과 텍스트로 대체
+        st.warning(f"**🚧 지리적 위치 확인:** 현재 선택하신 **{selected_country}**의 도시 **{selected_city}**는 지도상에 [📍] 위치에 해당합니다.", icon="🗺️")
+        st.caption("_(Streamlit 앱에 실제 지도를 표시하려면 별도의 이미지 파일을 준비하거나, `st.map()` 함수를 사용해야 합니다.)_")
+
 
 # --- 6. 추천 여행지 섹션 (검색 전, 메인 화면에만 표시) ---
 if not st.session_state.report_searched:
@@ -292,7 +295,7 @@ if not st.session_state.report_searched:
                 st.session_state.selected_country = country
                 st.session_state.selected_city = city
                 st.session_state.report_searched = True
-                # 추천 국가/도시 선택 시 체크리스트 상태도 초기화 또는 불러옴
+                # 추천 국가/도시 선택 시 체크리스트 상태 초기화/불러오기
                 if country not in st.session_state.checklist_status:
                     st.session_state.checklist_status[country] = {item: False for item in check_list}
                 st.rerun()
