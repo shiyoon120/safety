@@ -8,7 +8,7 @@ st.set_page_config(
     page_icon="✈️", 
     layout="wide"
 )
-st.title("✈️ SafeTrip: 여행 안전 보고서 및 점검 (최종 안정화)")
+st.title("✈️ SafeTrip: 여행 안전 보고서 및 점검")
 st.markdown("여행할 **국가**와 **도시**를 선택하고 **'안전 보고서 검색'** 버튼을 눌러 맞춤형 정보를 확인하세요.")
 st.markdown("---")
 
