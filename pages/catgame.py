@@ -1,18 +1,18 @@
-# 파일명: fire_cat_game_final.py
+# 파일명: fire_cat_game_final_v3.py
 import streamlit as st
 import random
 from time import sleep 
 
 # --- 1. 기본 설정 및 상태 관리 ---
 
-# st.set_page_config는 맨 위에 위치해야 합니다.
+# st.set_page_config는 항상 파일의 최상단에서 한 번만 호출합니다.
 st.set_page_config(
     page_title="냥이의 안전한 집 탈출!",
     page_icon="😼",
     layout="wide" 
 )
 
-# 게임 상태 초기화 (오류 방지를 위해 session_state 초기화 코드를 검토했습니다.)
+# 게임 상태 초기화
 if 'game_stage' not in st.session_state:
     st.session_state.game_stage = 0  # 0: 시작, 1: 1단계, 2: 2단계, 99: 실패, 100: 성공
     st.session_state.fire_loc = random.randint(1, 3) # 불이 난 위치 
@@ -25,12 +25,13 @@ if 'game_stage' not in st.session_state:
 def go_to_stage(stage):
     """게임 단계를 변경하고 페이지를 새로고침(rerun)합니다."""
     st.session_state.game_stage = stage
-    # st.rerun()은 마지막에 한 번만 호출하는 것이 좋습니다.
+    # 페이지를 이동하거나 상태를 변경한 후에는 반드시 st.rerun()을 호출해야 합니다.
+    st.rerun()
 
 def reset_game():
     """게임을 초기 상태로 되돌립니다."""
     st.toast("게임을 다시 시작합니다! 😼", icon="🔄")
-    sleep(1) # 잠시 딜레이
+    sleep(1) 
     # 모든 상태를 초기화
     st.session_state.game_stage = 0
     st.session_state.fire_loc = random.randint(1, 3)
@@ -43,11 +44,10 @@ def show_fail_reason(reason):
     """실패 화면과 이유를 보여줍니다."""
     st.session_state.fail_reason = reason
     go_to_stage(99)
-    st.rerun() # 실패 시 즉시 화면 전환
 
 # --- 3. 게임 화면 렌더링 함수 ---
 
-# A. 시작 화면 (Stage 0) - 단순화 및 귀여움 강조
+# A. 시작 화면 (Stage 0)
 def render_stage_0():
     if not st.session_state.game_started:
         st.title("🔥 냥이의 안전한 집 탈출! 🚨")
@@ -65,9 +65,8 @@ def render_stage_0():
             if st.button("▶️ 훈련 시작! (1단계로 이동)", type="primary", use_container_width=True):
                 st.session_state.game_started = True
                 go_to_stage(1)
-                st.rerun()
 
-# B. 1단계: 초기 화재 진압 - 불난 느낌 연출
+# B. 1단계: 초기 화재 진압
 def render_stage_1():
     st.header("🔥 1단계: 작은 불꽃 진압! 💨")
     st.markdown("### **집 안에서 **작은 불**을 발견했어요! 연기(💨)가 나기 시작했어요. 빠르게 진압해야 해요!**")
@@ -79,18 +78,18 @@ def render_stage_1():
     # 불난 장소와 주변 연출
     for i, col in enumerate(fire_pos_list):
         with col:
-            st.markdown("### " + ("💨" * (i * 2 + 1))) # 연기량 차등 적용
+            # 연기 이모지 표시
+            st.markdown("### " + ("💨" * (i * 2 + 1)))
 
             if i + 1 == st.session_state.fire_loc:
                 # 불이 난 위치
                 if not st.session_state.is_fire_out:
-                    # 불이 안 꺼졌을 때
                     st.markdown("## 🗑️ 🔥 (휴지통에서 불이! 빨리 소화해야 해!)")
                     if st.button("💧 소화 버튼 누르기", key="fire_button", type="primary"):
                         st.session_state.is_fire_out = True
                         st.toast("초기 진압 성공!", icon="💧")
                         st.snow() 
-                        st.rerun() 
+                        st.rerun() # 상태가 바뀌었으므로 새로고침
                 else:
                     # 불이 꺼졌을 때
                     st.markdown("## 💧") 
@@ -108,11 +107,10 @@ def render_stage_1():
         st.success("✅ 초기 진압 성공! 이제 대피 경로를 찾아 안전하게 밖으로 나가야 해요. 🚨")
         if st.button("다음 단계 (2단계)로 이동", type="secondary"):
             go_to_stage(2)
-            st.rerun()
     else:
         st.info("🚨 불이 난 곳 아래의 **'소화 버튼'**을 누르세요!")
 
-# C. 2단계: 안전한 대피 경로 선택 - 압력 초기값 0 및 정답 미노출
+# C. 2단계: 안전한 대피 경로 선택
 def render_stage_2():
     st.header("🏃‍♀️ 2단계: 소화기 확인 및 대피 경로 선택! 🚨")
     st.markdown("### **소화기 상태를 점검하고, 연기가 가득한 복도에서 가장 안전한 대피 경로를 선택해야 합니다!**")
@@ -123,7 +121,7 @@ def render_stage_2():
     st.markdown("**소화기 압력 슬라이더를 움직여 초록색 안전 구간(50~70)에 정확히 맞추세요!**")
     
     # 초기값 0으로 설정
-    pressure = st.slider("소화기 압력 게이지 조정", 0, 100, **0**, key="pressure_slider")
+    pressure = st.slider("소화기 압력 게이지 조정", 0, 100, 0, key="pressure_slider")
     
     is_pressure_ok = (50 <= pressure <= 70)
     
@@ -141,7 +139,7 @@ def render_stage_2():
             
     st.markdown("---")
 
-    # 2. 대피 경로 선택 - 답을 알려주지 않도록 질문 수정
+    # 2. 대피 경로 선택 - 정답 미노출
     st.subheader("2. 안전한 대피 경로 선택:")
     
     if is_pressure_ok:
@@ -156,10 +154,8 @@ def render_stage_2():
             if "A. 계단 비상구를 찾아" in evac_choice:
                 st.toast("잠시만 기다려주세요...", icon="⏳")
                 sleep(1)
-                go_to_stage(100) # 최종 성공
-                st.rerun()
+                go_to_stage(100)
             elif "B. 엘리베이터가 보이니까" in evac_choice:
-                # 요청하신 '엘베를 누르면 게임 종료' 조건
                 show_fail_reason("🚨 엘리베이터는 화재 시 정전되거나 고장으로 갇힐 위험이 있어 **절대** 이용하면 안 됩니다! 🙅‍♀️ 계단 비상구를 이용해야 합니다.")
             else:
                 st.warning("경로 A 또는 B를 선택해 주세요.")
