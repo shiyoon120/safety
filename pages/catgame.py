@@ -238,9 +238,9 @@ def render_stage_4():
         
     # 2. 엘리베이터 버튼 (오답) - 아이콘 (🛗) 및 화살표 통일 (⬇️)
     with col_elev:
-        if st.button("⬇️ 🛗 엘리베이터 이용", key="elev_button", use_container_width=True):
+        if st.button("⬇️ 엘리베이터 이용", key="elev_button", use_container_width=True):
             show_fail_reason("🚨 엘리베이터는 화재 시 정전되거나 고장으로 갇힐 위험이 있어 **절대** 이용하면 안 됩니다! 🙅‍♀️ 계단 비상구를 이용해야 합니다.")
-        st.markdown("### **B. 엘리베이터가 보이니까 버튼을 눌러 빠르게 내려간다.**") 
+        st.markdown("### 🛗 **B. 엘리베이터가 보이니까 버튼을 눌러 빠르게 내려간다.**") 
     
     st.markdown("---")
 
