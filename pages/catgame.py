@@ -1,4 +1,4 @@
-# 파일명: fire_cat_game_final_v9.py
+# 파일명: fire_cat_game_final_v10.py
 import streamlit as st
 import random
 from time import sleep 
@@ -116,7 +116,7 @@ def render_stage_1():
             st.warning("압력이 올바르지 않으면 소화기가 작동하지 않을 수 있어요!")
             st.info("압력을 먼저 맞춰주세요.")
 
-# C. 2단계: 화재 종류별 진압 선택 (피드백/이동 로직 수정)
+# C. 2단계: 화재 종류별 진압 선택
 def render_stage_2():
     st.header("🔥 2단계: 화재 종류별 진압 방법 선택!")
     st.markdown(f"### **현재 화재는 **{st.session_state.fire_type}** 화재예요! 올바른 진압 방법을 고르세요.**")
@@ -133,7 +133,7 @@ def render_stage_2():
 
     st.markdown("---")
     
-    # 이미 정답을 맞췄으면 바로 다음 단계 버튼 표시
+    # 이미 정답을 맞췄으면 바로 피드백 표시
     if st.session_state.step_2_success:
         st.success("✨ 정답! 올바른 진압 방법을 선택했어요.")
         if st.button("다음 단계 (3단계)로 이동", type="secondary"):
@@ -151,7 +151,7 @@ def render_stage_2():
     if st.button("진압 방법 선택 완료", type="primary"):
         if evac_choice == correct_choice:
             st.session_state.step_2_success = True
-            st.rerun() # 성공 상태를 반영하기 위해 리런 (이동 버튼 표시)
+            st.rerun() # 성공 상태를 반영하기 위해 리런 (정답 피드백 표시)
         else:
             fail_reason = ""
             if "A. 물을 뿌려서" in evac_choice and "주방" in st.session_state.fire_type:
@@ -163,16 +163,16 @@ def render_stage_2():
             
             show_fail_reason(fail_reason)
 
-# D. 3단계: P.A.S.S. 순서 맞추기 (난이도 상향 및 색상 오류 수정)
+# D. 3단계: P.A.S.S. 순서 맞추기 (힌트 제거 및 성공 시 설명 추가)
 def render_stage_3():
     st.header("💧 3단계: 소화기 P.A.S.S. 순서 훈련!")
-    # 정답 순서 힌트 제거 (난이도 유지)
-    st.markdown("### **소화기 사용의 4단계 순서를 기억하며 올바른 동작을 순서대로 눌러 불을 완전히 꺼주세요!**")
+    # 정답 순서 힌트 제거
+    st.markdown("### **소화기 사용의 4단계 순서(P.A.S.S.)를 기억하며 올바른 동작을 순서대로 눌러 불을 완전히 꺼주세요!**")
     st.markdown("---")
 
-    # 현재 진행 상황 표시
-    current_step_easy = PASS_STEPS_EASY[st.session_state.current_pass_index] if st.session_state.current_pass_index < 4 else "완료"
-    st.subheader(f"✅ 현재 진행도: {st.session_state.current_pass_index} / 4 단계 (다음 동작: **{current_step_easy}**)")
+    # 현재 진행 상황 표시 (남은 단계 수만 표시)
+    remaining_steps = 4 - st.session_state.current_pass_index
+    st.subheader(f"✅ 남은 단계 수: **{remaining_steps}**")
     
     col_pass = st.columns(4)
     
@@ -185,7 +185,7 @@ def render_stage_3():
                 # 이미 완료된 단계 (초록색)
                 st.success(f"✅ {step_hard_text}")
             elif step_hard_text == correct_step_hard_text:
-                # 현재 정답 버튼 (일반색으로 변경 - 정답 노출 방지)
+                # 현재 정답 버튼 (일반색)
                 if st.button(f"⚫ {step_hard_text}", key=f"pass_btn_{i}"):
                     st.session_state.current_pass_index += 1
                     st.session_state.pass_status[step_hard_text] = True
@@ -195,17 +195,26 @@ def render_stage_3():
                 # 오답 버튼 (일반색)
                 if st.button(f"⚫ {step_hard_text}", key=f"pass_btn_{i}"):
                     # 순서를 틀렸을 때 즉시 실패
-                    show_fail_reason(f"🚨 P.A.S.S. 순서가 틀렸어요! 올바른 순서는 **{PASS_STEPS_EASY[st.session_state.current_pass_index]}** 입니다. (당신은 '{step_hard_text}'을 먼저 눌렀어요.)")
+                    correct_step_name = PASS_STEPS_EASY[st.session_state.current_pass_index]
+                    show_fail_reason(f"🚨 P.A.S.S. 순서가 틀렸어요! 올바른 순서는 **{correct_step_name}** 입니다. (당신은 '{step_hard_text}'을 먼저 눌렀어요.)")
 
     st.markdown("---")
     
-    # 4단계 모두 완료 시
+    # 4단계 모두 완료 시 (교육적인 설명 추가)
     if st.session_state.current_pass_index == 4:
         st.success("🎉 P.A.S.S. 순서 완벽! 불이 완전히 진압되었어요!")
+        st.markdown("### **⭐ 잠깐! P.A.S.S. 란 무엇일까요?**")
+        st.markdown("""
+        P.A.S.S.는 소화기를 올바르게 사용하는 4단계 행동 요령입니다. 당신은 이 순서를 성공적으로 해냈어요!
+        * **P (Pull):** 안전핀을 **뽑고**
+        * **A (Aim):** 노즐을 불이 난 곳으로 **조준하고**
+        * **S (Squeeze):** 손잡이를 **누르고**
+        * **S (Sweep):** 불이 난 곳을 **쓸어 끄듯이** 분사합니다.
+        """)
         if st.button("다음 단계 (4단계)로 이동 - 최종 대피", type="secondary"):
             go_to_stage(4)
             
-# E. 4단계: 안전한 대피 경로 선택 (색상 오류 수정)
+# E. 4단계: 안전한 대피 경로 선택 (텍스트 ❌ 제거)
 def render_stage_4():
     st.header("🏃‍♀️ 4단계: 안전한 대피 경로 선택! 🚨")
     st.markdown("### **모든 진압이 끝났지만, 건물 밖으로 나가기 위해 마지막으로 안전한 경로를 선택해야 합니다!**")
@@ -217,7 +226,7 @@ def render_stage_4():
 
     # 1. 계단 버튼 (정답) - 일반색
     with col_stair:
-        if st.button("⬇️ 계단 이용", key="stair_button", use_container_width=True): # type='primary' 제거
+        if st.button("⬇️ 계단 이용", key="stair_button", use_container_width=True):
             st.toast("똑똑해요! 계단이 안전합니다.", icon="✨")
             sleep(1)
             go_to_stage(100)
@@ -227,7 +236,8 @@ def render_stage_4():
     with col_elev:
         if st.button("⬆️ 엘리베이터 이용", key="elev_button", use_container_width=True):
             show_fail_reason("🚨 엘리베이터는 화재 시 정전되거나 고장으로 갇힐 위험이 있어 **절대** 이용하면 안 됩니다! 🙅‍♀️ 계단 비상구를 이용해야 합니다.")
-        st.markdown("### ❌ **B. 엘리베이터가 보이니까 버튼을 눌러 빠르게 내려간다.**")
+        # ❌ 제거
+        st.markdown("### **B. 엘리베이터가 보이니까 버튼을 눌러 빠르게 내려간다.**") 
     
     st.markdown("---")
 
