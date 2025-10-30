@@ -1,33 +1,23 @@
-# 파일명: fire_cat_game_v2.py
+# 파일명: fire_cat_game_final.py
 import streamlit as st
 import random
 from time import sleep 
 
-# --- 0. 설정: 귀여운 배경 음악 (HTML을 이용해 삽입) ---
-# 주의: 일부 브라우저는 자동 재생을 막을 수 있습니다.
-BGM_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" # 저작권 없는 예시 MP3 링크 사용
-
-BGM_HTML = f"""
-<audio controls autoplay loop style="display:none">
-  <source src="{BGM_URL}" type="audio/mp3">
-</audio>
-"""
-st.markdown(BGM_HTML, unsafe_allow_html=True)
-
-
 # --- 1. 기본 설정 및 상태 관리 ---
+
+# st.set_page_config는 맨 위에 위치해야 합니다.
 st.set_page_config(
-    page_title="냥이의 안전한 집 탈출! V2",
+    page_title="냥이의 안전한 집 탈출!",
     page_icon="😼",
-    layout="wide"
+    layout="wide" 
 )
 
-# 게임 상태 초기화
+# 게임 상태 초기화 (오류 방지를 위해 session_state 초기화 코드를 검토했습니다.)
 if 'game_stage' not in st.session_state:
     st.session_state.game_stage = 0  # 0: 시작, 1: 1단계, 2: 2단계, 99: 실패, 100: 성공
-    st.session_state.fire_loc = random.randint(1, 3) 
-    st.session_state.is_fire_out = False 
-    st.session_state.fail_reason = "" 
+    st.session_state.fire_loc = random.randint(1, 3) # 불이 난 위치 
+    st.session_state.is_fire_out = False # 불을 껐는지 여부
+    st.session_state.fail_reason = "" # 실패 이유 저장
     st.session_state.game_started = False # 시작 버튼 눌림 여부
 
 # --- 2. 유틸리티 함수 ---
@@ -35,12 +25,13 @@ if 'game_stage' not in st.session_state:
 def go_to_stage(stage):
     """게임 단계를 변경하고 페이지를 새로고침(rerun)합니다."""
     st.session_state.game_stage = stage
-    st.rerun()
+    # st.rerun()은 마지막에 한 번만 호출하는 것이 좋습니다.
 
 def reset_game():
     """게임을 초기 상태로 되돌립니다."""
     st.toast("게임을 다시 시작합니다! 😼", icon="🔄")
-    sleep(1) 
+    sleep(1) # 잠시 딜레이
+    # 모든 상태를 초기화
     st.session_state.game_stage = 0
     st.session_state.fire_loc = random.randint(1, 3)
     st.session_state.is_fire_out = False
@@ -52,35 +43,34 @@ def show_fail_reason(reason):
     """실패 화면과 이유를 보여줍니다."""
     st.session_state.fail_reason = reason
     go_to_stage(99)
+    st.rerun() # 실패 시 즉시 화면 전환
 
 # --- 3. 게임 화면 렌더링 함수 ---
 
-# A. 시작 화면 (Stage 0) - 귀엽고 단순하게
+# A. 시작 화면 (Stage 0) - 단순화 및 귀여움 강조
 def render_stage_0():
     if not st.session_state.game_started:
-        st.markdown("<h1 style='text-align: center; color: #ff6347;'>🔥 냥이의 안전한 집 탈출! 🚨</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-size: 20px;'>😺 **귀여운 냥이 '안전이'와 함께 안전 훈련을 시작할까요?** 🐾</p>", unsafe_allow_html=True)
+        st.title("🔥 냥이의 안전한 집 탈출! 🚨")
+        st.markdown("## 😺 **귀여운 냥이 '안전이'와 함께 화재 안전 훈련을 시작할까요?** 🐾")
         st.markdown("---")
         
-        # 픽셀 아트/게임 분위기 연출
-        col_c, col_c2 = st.columns([1, 1])
-        with col_c:
-            st.markdown("### ", unsafe_allow_html=True) # 공백
-        with col_c2:
-            st.image("https://i.ibb.co/6P0S00q/cat-pixel-art.png", width=250) # 예시 픽셀 고양이 이미지 (대체 필요)
+        # 픽셀 아트/게임 분위기 연출 (텍스트만 사용)
+        st.write("### 🏠 🛋️ 🧸 🐈 🚪")
+        st.write("### (안전이)는 당신의 올바른 선택을 기다리고 있어요!")
         
         st.markdown("---")
         
-        c1, c2, c3 = st.columns(3)
-        with c2:
+        col_start, col_dummy = st.columns([1, 2])
+        with col_start:
             if st.button("▶️ 훈련 시작! (1단계로 이동)", type="primary", use_container_width=True):
                 st.session_state.game_started = True
                 go_to_stage(1)
+                st.rerun()
 
-# B. 1단계: 초기 화재 진압 - 불난 느낌 연출 추가
+# B. 1단계: 초기 화재 진압 - 불난 느낌 연출
 def render_stage_1():
-    st.markdown("<h2 style='color: #ff6347;'>🔥 1단계: 작은 불꽃 진압! 💨</h2>", unsafe_allow_html=True)
-    st.markdown("### **집 안에 **작은 불**이 났어요! 연기(💨)가 나기 시작했어요. 빠르게 진압해야 해요!**")
+    st.header("🔥 1단계: 작은 불꽃 진압! 💨")
+    st.markdown("### **집 안에서 **작은 불**을 발견했어요! 연기(💨)가 나기 시작했어요. 빠르게 진압해야 해요!**")
     st.markdown("---")
     
     col1, col2, col3 = st.columns(3)
@@ -118,12 +108,13 @@ def render_stage_1():
         st.success("✅ 초기 진압 성공! 이제 대피 경로를 찾아 안전하게 밖으로 나가야 해요. 🚨")
         if st.button("다음 단계 (2단계)로 이동", type="secondary"):
             go_to_stage(2)
+            st.rerun()
     else:
         st.info("🚨 불이 난 곳 아래의 **'소화 버튼'**을 누르세요!")
 
-# C. 2단계: 안전한 대피 경로 선택 - 정답 노출 방지 및 압력 초기값 0
+# C. 2단계: 안전한 대피 경로 선택 - 압력 초기값 0 및 정답 미노출
 def render_stage_2():
-    st.markdown("<h2 style='color: #ff6347;'>🏃‍♀️ 2단계: 소화기 확인 및 대피 경로 선택! 🚨</h2>", unsafe_allow_html=True)
+    st.header("🏃‍♀️ 2단계: 소화기 확인 및 대피 경로 선택! 🚨")
     st.markdown("### **소화기 상태를 점검하고, 연기가 가득한 복도에서 가장 안전한 대피 경로를 선택해야 합니다!**")
     st.markdown("---")
 
@@ -166,6 +157,7 @@ def render_stage_2():
                 st.toast("잠시만 기다려주세요...", icon="⏳")
                 sleep(1)
                 go_to_stage(100) # 최종 성공
+                st.rerun()
             elif "B. 엘리베이터가 보이니까" in evac_choice:
                 # 요청하신 '엘베를 누르면 게임 종료' 조건
                 show_fail_reason("🚨 엘리베이터는 화재 시 정전되거나 고장으로 갇힐 위험이 있어 **절대** 이용하면 안 됩니다! 🙅‍♀️ 계단 비상구를 이용해야 합니다.")
@@ -176,18 +168,18 @@ def render_stage_2():
 
 # D. 실패/성공 화면
 def render_stage_99():
-    st.markdown("<h1 style='color: red; text-align: center;'>🛑 게임 실패! 😭</h1>", unsafe_allow_html=True)
+    st.error("🛑 게임 실패! 😭")
     st.markdown("---")
     st.markdown(f"## **🚨 안전이 탈출 실패!**")
     st.markdown(f"### **실패한 이유: {st.session_state.fail_reason}**")
     st.markdown("---")
-    st.markdown("### **다음에는 꼭 기억해서 안전이를 지켜주세요!** 😿")
+    st.markdown("### **다음에 꼭 기억해서 안전이를 지켜주세요!** 😿")
     if st.button("다시 도전하기", type="primary"):
         reset_game()
 
 def render_stage_100():
     st.balloons()
-    st.markdown("<h1 style='color: green; text-align: center;'>🎉 최종 성공! 💯</h1>", unsafe_allow_html=True)
+    st.success("🎉 최종 성공! 💯")
     st.markdown("---")
     st.markdown("## **'안전이'와 함께 무사히 대피했습니다! 정말 잘했어요!** 😻")
     st.markdown("---")
@@ -198,6 +190,7 @@ def render_stage_100():
 # --- 4. 메인 게임 루프 ---
 
 def main():
+    # 게임 상태에 따라 적절한 렌더링 함수 호출
     if st.session_state.game_stage == 0:
         render_stage_0()
     elif st.session_state.game_stage == 1:
